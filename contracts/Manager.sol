@@ -17,7 +17,7 @@ import "./interfaces/events/CycleRolloverEvent.sol";
 import "./interfaces/events/IEventSender.sol";
 
 //solhint-disable not-rely-on-time
-contract Manager is IManager, Initializable, AccessControl, IEventSender {
+abstract contract Manager is IManager, Initializable, AccessControl, IEventSender {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using Address for address;
@@ -38,7 +38,7 @@ contract Manager is IManager, Initializable, AccessControl, IEventSender {
     // Bytes32 controller id => controller address
     mapping(bytes32 => address) public registeredControllers;
     // Cycle index => ipfs rewards hash
-    mapping(uint256 => string) public override cycleRewardsHashes;
+    mapping(uint256 => string) public rewardsHashes;
     EnumerableSet.AddressSet private pools;
     EnumerableSet.Bytes32Set private controllerIds;
 
@@ -127,11 +127,6 @@ contract Manager is IManager, Initializable, AccessControl, IEventSender {
         emit PoolUnregistered(pool);
     }
 
-    function setCycleDuration(uint256 duration) external override onlyAdmin {
-        cycleDuration = duration;
-        emit CycleDurationSet(duration);
-    }
-
     function setNextCycleStartTime(uint256 _nextCycleStartTime) public override onlyAdmin {
         // We are aware of the possibility of timestamp manipulation.  It does not pose any
         // risk based on the design of our system
@@ -156,15 +151,6 @@ contract Manager is IManager, Initializable, AccessControl, IEventSender {
             returnData[i] = controllerIds.at(i);
         }
         return returnData;
-    }
-
-    function completeRollover(string calldata rewardsIpfsHash) external override onlyRollover {
-        // Can't be hit via test cases, going to leave in anyways in case we ever change code
-        require(nextCycleStartTime > 0, "SET_BEFORE_ROLLOVER");
-        // We are aware of the possibility of timestamp manipulation.  It does not pose any
-        // risk based on the design of our system
-        require(block.timestamp > nextCycleStartTime, "PREMATURE_EXECUTION");
-        _completeRollover(rewardsIpfsHash);
     }
 
     /// @notice Used for mid-cycle adjustments
@@ -216,29 +202,14 @@ contract Manager is IManager, Initializable, AccessControl, IEventSender {
             }
             emit LiquidityMovedToPool(params.poolsForWithdraw[y], managerBalance);
         }
-
-        if (params.complete) {
-            _completeRollover(params.rewardsIpfsHash);
-        }
     }
 
-    function sweep(address[] calldata poolAddresses) external override onlyRollover {
+    function setCycleRewardsHashes(uint256 _cycleIndex, string memory _cycleRewardsHash) external {
+      rewardsHashes[_cycleIndex] = _cycleRewardsHash;
+    }
 
-        uint256 length = poolAddresses.length;
-        uint256[] memory amounts = new uint256[](length);
-
-        for (uint256 i = 0; i < length; i++) {
-            address currentPoolAddress = poolAddresses[i];
-            require(pools.contains(currentPoolAddress), "INVALID_ADDRESS");
-            IERC20 underlyer = IERC20(ILiquidityPool(currentPoolAddress).underlyer());
-            uint256 amount = underlyer.balanceOf(address(this));
-            amounts[i] = amount;
-            
-            if (amount > 0) {
-                underlyer.safeTransfer(currentPoolAddress, amount);
-            }
-        }
-        emit ManagerSwept(poolAddresses, amounts);
+    function cycleRewardsHashes(uint256 _cycleIndex) external view override returns (string memory hash) {
+      return rewardsHashes[_cycleIndex];
     }
 
     function _executeControllerCommand(ControllerTransferData calldata transfer) private {
@@ -258,29 +229,28 @@ contract Manager is IManager, Initializable, AccessControl, IEventSender {
         emit CycleRolloverStarted(block.timestamp);
     }
 
-    function _completeRollover(string calldata rewardsIpfsHash) private {
-        currentCycle = nextCycleStartTime;
-        nextCycleStartTime = nextCycleStartTime.add(cycleDuration);
-        cycleRewardsHashes[currentCycleIndex] = rewardsIpfsHash;
-        currentCycleIndex = currentCycleIndex.add(1);
-        rolloverStarted = false;
-
-        bytes32 eventSig = "Cycle Complete";
-        encodeAndSendData(eventSig);
-
-        emit CycleRolloverComplete(block.timestamp);
-    }
-
     function getCurrentCycle() external view override returns (uint256) {
         return currentCycle;
+    }
+
+    function setCurrentCycle(uint256 _currentCycle) external returns (uint256) {
+      currentCycle = _currentCycle;
     }
 
     function getCycleDuration() external view override returns (uint256) {
         return cycleDuration;
     }
 
+    function setCycleDuration(uint256 _cycleDuration) external override {
+        cycleDuration = _cycleDuration;
+    }
+
     function getCurrentCycleIndex() external view override returns (uint256) {
         return currentCycleIndex;
+    }
+
+    function setCurrentCycleIndex(uint256 _currentCycleIndex) external returns (uint256) {
+        currentCycleIndex = _currentCycleIndex;
     }
 
     function getRolloverStatus() external view override returns (bool) {
