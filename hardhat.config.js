@@ -17,5 +17,13 @@ module.exports = {
     ]
   },
   networks: {
+  },
+  namedAccounts: {
+    admin: {
+      default: 0,
+    },
+    userOne: {
+      default: 1,
+    }
   }
 };
