@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./interfaces/IRewards.sol";
 
-abstract contract Rewards is Ownable, IRewards {
+contract Rewards is Ownable, IRewards {
     using SafeMath for uint256;
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;
@@ -52,5 +52,16 @@ abstract contract Rewards is Ownable, IRewards {
 
         emit Claimed(recipient.cycle, recipient.wallet, claimableAmount);
     }
+
+    // These three functions are just to make solc happy, we do not use them
+    // Since we cannot deploy an abstract contract, there signature should match the Interface one
+    function claimedAmounts(address account) external view override returns (uint256) {
+      return 0;
+    }
+    function rewardsSigner() external view override returns (address) {
+      address signer = 0x0000000000000000000000000000000000000000;
+      return signer;
+    }
+    function setSigner(address newSigner) external override {}
 }
 

@@ -2,6 +2,9 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-web3");
 require("hardhat-deploy");
 
+require('dotenv').config()
+
+
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
@@ -17,6 +20,10 @@ module.exports = {
     ]
   },
   networks: {
+    goerli: {
+      url: 'https://eth-goerli.alchemyapi.io/v2/JJjKH1QMieKSbAowFnLqflQh4fvklEqm',
+      accounts: [process.env.PRIVATE_KEY]
+    }
   },
   namedAccounts: {
     admin: {

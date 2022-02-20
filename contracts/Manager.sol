@@ -17,7 +17,7 @@ import "./interfaces/events/CycleRolloverEvent.sol";
 import "./interfaces/events/IEventSender.sol";
 
 //solhint-disable not-rely-on-time
-abstract contract Manager is IManager, Initializable, AccessControl, IEventSender {
+contract Manager is IManager, Initializable, AccessControl, IEventSender {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using Address for address;
@@ -38,7 +38,7 @@ abstract contract Manager is IManager, Initializable, AccessControl, IEventSende
     // Bytes32 controller id => controller address
     mapping(bytes32 => address) public registeredControllers;
     // Cycle index => ipfs rewards hash
-    mapping(uint256 => string) public rewardsHashes;
+    mapping(uint256 => string) public override cycleRewardsHashes;
     EnumerableSet.AddressSet private pools;
     EnumerableSet.Bytes32Set private controllerIds;
 
@@ -103,6 +103,10 @@ abstract contract Manager is IManager, Initializable, AccessControl, IEventSende
         _setupRole(START_ROLLOVER_ROLE, _msgSender());
 
         setNextCycleStartTime(_nextCycleStartTime);
+    }
+
+    // Unused, making solc happy
+    function sweep(address[] calldata poolAddresses) external override onlyRollover {
     }
 
     function registerController(bytes32 id, address controller) external override onlyAdmin {
@@ -204,12 +208,12 @@ abstract contract Manager is IManager, Initializable, AccessControl, IEventSende
         }
     }
 
-    function setCycleRewardsHashes(uint256 _cycleIndex, string memory _cycleRewardsHash) external {
-      rewardsHashes[_cycleIndex] = _cycleRewardsHash;
+    function setCycleRewardsHashes(uint256 _cycleIndex, string memory _cycleRewardsHash) public {
+      cycleRewardsHashes[_cycleIndex] = _cycleRewardsHash;
     }
 
-    function cycleRewardsHashes(uint256 _cycleIndex) external view override returns (string memory hash) {
-      return rewardsHashes[_cycleIndex];
+    function getCycleRewardsHashes(uint256 _cycleIndex) external view returns (string memory hash) {
+      return cycleRewardsHashes[_cycleIndex];
     }
 
     function _executeControllerCommand(ControllerTransferData calldata transfer) private {
@@ -233,7 +237,7 @@ abstract contract Manager is IManager, Initializable, AccessControl, IEventSende
         return currentCycle;
     }
 
-    function setCurrentCycle(uint256 _currentCycle) external returns (uint256) {
+    function setCurrentCycle(uint256 _currentCycle) public returns (uint256) {
       currentCycle = _currentCycle;
     }
 
@@ -249,7 +253,7 @@ abstract contract Manager is IManager, Initializable, AccessControl, IEventSende
         return currentCycleIndex;
     }
 
-    function setCurrentCycleIndex(uint256 _currentCycleIndex) external returns (uint256) {
+    function setCurrentCycleIndex(uint256 _currentCycleIndex) public returns (uint256) {
         currentCycleIndex = _currentCycleIndex;
     }
 
@@ -257,39 +261,30 @@ abstract contract Manager is IManager, Initializable, AccessControl, IEventSende
         return rolloverStarted;
     }
 
-    function setDestinations(address _fxStateSender, address _destinationOnL2) external override onlyAdmin {
-        require(_fxStateSender != address(0), "INVALID_ADDRESS");
-        require(_destinationOnL2 != address(0), "INVALID_ADDRESS");
 
-        destinations.fxStateSender = IFxStateSender(_fxStateSender);
-        destinations.destinationOnL2 = _destinationOnL2;
-
-        emit DestinationsSet(_fxStateSender, _destinationOnL2);
+    // Unused, making solc happy
+    function _completeRollover(string calldata rewardsIpfsHash) private {
     }
 
-    function setEventSend(bool _eventSendSet) external override onlyAdmin {
-        require(destinations.destinationOnL2 != address(0), "DESTINATIONS_NOT_SET");
-        
-        _eventSend = _eventSendSet;
+    // Unused, making solc happy
+    function completeRollover(string calldata rewardsIpfsHash) external override onlyRollover {
+    }
 
-        emit EventSendSet(_eventSendSet);
+
+    // Unused, making solc happy
+    function setDestinations(address _fxStateSender, address _destinationOnL2) external override onlyAdmin {
+    }
+
+    // Unused, making solc happy
+    function setEventSend(bool _eventSendSet) external override onlyAdmin {
     }
 
     function setupRole(bytes32 role) external override onlyAdmin {
         _setupRole(role, _msgSender());
     }
 
+    // Unused, making solc happy
     function encodeAndSendData(bytes32 _eventSig) private onEventSend {
-        require(address(destinations.fxStateSender) != address(0), "ADDRESS_NOT_SET");
-        require(destinations.destinationOnL2 != address(0), "ADDRESS_NOT_SET");
-
-        bytes memory data = abi.encode(CycleRolloverEvent({
-            eventSig: _eventSig,
-            cycleIndex: currentCycleIndex,
-            timestamp: currentCycle
-        }));
-
-        destinations.fxStateSender.sendMessageToChild(destinations.destinationOnL2, data);
     }
 }
 
